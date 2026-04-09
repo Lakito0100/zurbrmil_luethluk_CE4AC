@@ -171,7 +171,7 @@ def RecAirCAV(α=1, β=0.1,
     QsZ = UA * (θOd - θIsp) + mid * c * (θOd - θIsp)
     m = - QsZ / (c * (θS - θIsp))
     print(f'm = {m: 5.3f} kg/s constant for design conditions:')
-    print(f'    [θSd = {θS: 3.1f} °C, mi = 2.18 kg/S, θO = -1°C, φ0 = 100%]')
+    print(f'    [θSd = {θS: 3.1f} °C, mi = {mi: 5.3f} kg/s, θO = {θO: 3.1f}°C, φ0 = {φO: 3.1f}]')
 
     # Model
     x = ModelRecAir(m, α, β,
@@ -189,7 +189,7 @@ def RecAirCAV(α=1, β=0.1,
                   [+0, +0, -1, -1, +1, +0],     # MX2
                   [+0, +0, +0, +0, -1, +1]])    # TZ
 
-    psy.chartA(θ, w, A)
+    psy.chartA(θ, w, A,t_range=np.arange(min(θ)-5, max(θ)+5, 0.1), w_range=np.arange(max(min(w)-0.005, 0), max(w)+0.005, 0.0001))
 
     θ = pd.Series(θ)
     w = 1000 * pd.Series(w)
