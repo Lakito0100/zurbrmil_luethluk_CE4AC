@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import psychro as psy
+import CE4AC_packages.psychro as psy
 import matplotlib.pyplot as plt
 
 # global variables
