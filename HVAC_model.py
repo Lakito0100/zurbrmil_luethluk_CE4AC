@@ -108,7 +108,8 @@ def ModelRecAir(m, α, β, θS, θIsp, φIsp, θO, φO, Qsa, Qla, mi, UA):
 
 def RecAirCAV(α=1, β=0.1,
               θS=30, θIsp=18, φIsp=0.49, θO=-1, φO=1,
-              Qsa=0, Qla=0, mi=2.18, UA=935.83):
+              Qsa=0, Qla=0, mi=2.18, UA=935.83,
+              show_plots=True, show_output=True):
     """
     Model:
         Heating and adiabatic humidification
@@ -157,7 +158,8 @@ def RecAirCAV(α=1, β=0.1,
     -------
     θ, w, Q
     """
-    plt.close('all')
+    if show_plots:
+        plt.close('all')
     wO = psy.w(θO, φO)            # hum. out
 
     # Mass flow rate for design conditions
@@ -170,8 +172,9 @@ def RecAirCAV(α=1, β=0.1,
     # mid = 2.18                     # infiltration
     QsZ = UA * (θOd - θIsp) + mid * c * (θOd - θIsp)
     m = - QsZ / (c * (θS - θIsp))
-    print(f'm = {m: 5.3f} kg/s constant for design conditions:')
-    print(f'    [θSd = {θS: 3.1f} °C, mi = {mi: 5.3f} kg/s, θO = {θO: 3.1f}°C, φ0 = {φO: 3.1f}]')
+    if show_output:
+        print(f'm = {m: 5.3f} kg/s constant for design conditions:')
+        print(f'    [θSd = {θS: 3.1f} °C, mi = {mi: 5.3f} kg/s, θO = {θO: 3.1f}°C, φ0 = {φO: 3.1f}]')
 
     # Model
     x = ModelRecAir(m, α, β,
@@ -189,24 +192,25 @@ def RecAirCAV(α=1, β=0.1,
                   [+0, +0, -1, -1, +1, +0],     # MX2
                   [+0, +0, +0, +0, -1, +1]])    # TZ
 
-    psy.chartA(θ, w, A,t_range=np.arange(min(θ)-5, max(θ)+5, 0.1), w_range=np.arange(max(min(w)-0.005, 0), max(w)+0.005, 0.0001))
+    if show_plots:
+        psy.chartA(θ, w, A,t_range=np.arange(min(θ)-5, max(θ)+5, 0.1), w_range=np.arange(max(min(w)-0.005, 0), max(w)+0.005, 0.0001))
 
     θ = pd.Series(θ)
     w = 1000 * pd.Series(w)
     P = pd.concat([θ, w], axis=1)       # points
     P.columns = ['θ [°C]', 'w [g/kg]']
 
-    output = P.to_string(formatters={
-        't [°C]': '{:,.2f}'.format,
-        'w [g/kg]': '{:,.2f}'.format
-    })
-    print()
-    print(output)
-
     Q = pd.Series(x[10:], index=['QsHC1', 'QsTZ', 'QlTZ'])
-    # Q.columns = ['kW']
     pd.options.display.float_format = '{:,.2f}'.format
-    print()
-    print(Q.to_frame().T / 1000, 'kW')
+
+    if show_output:
+        output = P.to_string(formatters={
+            't [°C]': '{:,.2f}'.format,
+            'w [g/kg]': '{:,.2f}'.format
+        })
+        print()
+        print(output)
+        print()
+        print(Q.to_frame().T / 1000, 'kW')
 
     return θ, w, Q
