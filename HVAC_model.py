@@ -43,7 +43,7 @@ def ModelRecAir(m, α, β, θS, θIsp, φIsp, θO, φO, Qsa, Qla, mi, UA):
 
     System:
         MX1:    Mixing box
-        HC1:    Heating Coil
+        HC:    Heating Coil
         AH:     Adiabatic Humidifier
         MX2:    Mixing in humidifier model
         TZ:     Thermal Zone
@@ -52,10 +52,10 @@ def ModelRecAir(m, α, β, θS, θIsp, φIsp, θO, φO, Qsa, Qla, mi, UA):
         o:      outdoor conditions
         0..4    unknown points (temperature, humidity ratio)
 
-        <----|<--------------------------------|
-             |                                |
-             |              |-------|         |
-        -o->MX1--0->HC1--1->|       MX2--3->TZ--4-|
+        <----|<-----------------------------------|
+             |                                    |
+             |              |-------|             |
+        -o->MX1--0->HC--1-->|       MX2--3->TZ--4-|
                     /       |       |       ||    |
                     |       |->AH-2-|       BL    |
                     |                             |
@@ -81,7 +81,7 @@ def ModelRecAir(m, α, β, θS, θIsp, φIsp, θO, φO, Qsa, Qla, mi, UA):
         # MX1
         A[0, 0], A[0, 8], b[0] = m * c, -(1 - α) * m * c, α * m * c * θO
         A[1, 1], A[1, 9], b[1] = m * l, -(1 - α) * m * l, α * m * l * wO
-        # HC1
+        # HC
         A[2, 0], A[2, 2], A[2, 10], b[2] = m * c, -m * c, 1, 0
         A[3, 1], A[3, 3], b[3] = m * l, -m * l, 0
         # AH
@@ -141,9 +141,9 @@ def RecAirCAV(α=1, β=0.1,
         o:      outdoor conditions
         0..4    5 unknown points (temperature, humidity ratio)
 
-        <----|<--------------------------------|
-             |                                |
-             |              |-------|         |
+        <----|<-----------------------------------|
+             |                                    |
+             |              |-------|             |
         -o->MX1--0->HC1--1->|       MX2--3->TZ--4-|
                     |       |       |       ||    |
                     |       |->AH-2-|       BL    |
@@ -155,7 +155,7 @@ def RecAirCAV(α=1, β=0.1,
         QsHC1, QsTZ, QlTZ
     Returns
     -------
-    None
+    θ, w, Q
     """
     plt.close('all')
     wO = psy.w(θO, φO)            # hum. out
@@ -209,4 +209,4 @@ def RecAirCAV(α=1, β=0.1,
     print()
     print(Q.to_frame().T / 1000, 'kW')
 
-    return None
+    return θ, w, Q
