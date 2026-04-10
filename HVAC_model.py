@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import CE4AC_packages.psychro as psy
 import matplotlib.pyplot as plt
+from CoolProp.CoolProp import PropsSI
 
 # global variables
 # UA = 935.83                 # bldg conductance
@@ -18,7 +19,7 @@ l = 2496e3                  # latent heat J/kg
 # *****************************************
 # RECYCLED AIR
 # *****************************************
-def ModelRecAir(m, α, β, θS, θIsp, φIsp, θO, φO, Qsa, Qla, mi, UA):
+def ModelRecAir(m, α, β, eta, θS, θO, φO, Qsa, Qla, mi, UA, T0, Tc, rho, Vd):
     """
     Model:
         Heating and adiabatic humidification
@@ -69,20 +70,20 @@ def ModelRecAir(m, α, β, θS, θIsp, φIsp, θO, φO, Qsa, Qla, mi, UA):
                 QHC1, QsTZ, QlTZ
 
     """
-    Kθ = 1e10                        # controller gain
+    Q_HP = heat_pump_Qc(T0, Tc, eta, rho, Vd)   #Heat pump
     wO = psy.w(θO, φO)            # hum. out
 
     # Model
     θs0, Δ_θs = θS, 2             # initial guess saturation temp.
 
-    A = np.zeros((13, 13))          # coefficents of unknowns
-    b = np.zeros(13)                # vector of inputs
+    A = np.zeros((12, 12))          # coefficents of unknowns
+    b = np.zeros(12)                # vector of inputs
     while Δ_θs > 0.01:
         # MX1
         A[0, 0], A[0, 8], b[0] = m * c, -(1 - α) * m * c, α * m * c * θO
         A[1, 1], A[1, 9], b[1] = m * l, -(1 - α) * m * l, α * m * l * wO
         # HC
-        A[2, 0], A[2, 2], A[2, 10], b[2] = m * c, -m * c, 1, 0
+        A[2, 0], A[2, 2], A[2, 10], b[2] = m * c, -m * c, 1, Q_HP
         A[3, 1], A[3, 3], b[3] = m * l, -m * l, 0
         # AH
         A[4, 2], A[4, 3], A[4, 4], A[4, 5], b[4] = c, l, -c, -l, 0
@@ -97,18 +98,16 @@ def ModelRecAir(m, α, β, θS, θIsp, φIsp, θO, φO, Qsa, Qla, mi, UA):
         # BL
         A[10, 8], A[10, 11], b[10] = (UA + mi * c), 1, (UA + mi * c) * θO + Qsa
         A[11, 9], A[11, 12], b[11] = mi * l, 1, mi * l * wO + Qla
-        # Kθ
-        A[12, 8], A[12, 10], b[12] = Kθ, 1, Kθ * θIsp
 
         x = np.linalg.solve(A, b)
         Δ_θs = abs(θs0 - x[4])
         θs0 = x[4]
-    return x
+    return x, Q_HP
 
 
-def RecAirCAV(α=1, β=0.1,
+def RecAirCAV(α=1, β=0.1, eta=0.65,
               θS=30, θIsp=18, φIsp=0.49, θO=-1, φO=1,
-              Qsa=0, Qla=0, mi=2.18, UA=935.83,
+              Qsa=0, Qla=0, mi=2.18, UA=935.83, 
               show_plots=True, show_output=True):
     """
     Model:
@@ -177,8 +176,17 @@ def RecAirCAV(α=1, β=0.1,
         print(f'    [θSd = {θS: 3.1f} °C, mi = {mi: 5.3f} kg/s, θO = {θO: 3.1f}°C, φ0 = {φO: 3.1f}]')
 
     # Model
-    x = ModelRecAir(m, α, β,
-                    θS, θIsp, φIsp, θO, φO, Qsa, Qla, mi, UA)
+    
+    x, Q_HP = ModelRecAir(
+        m, α, β, eta,
+        θS, θIsp, φIsp,
+        θO, φO,
+        Qsa, Qla, mi, UA, 
+        T0=θO,          
+        Tc=θS,      
+        rho=85,
+        Vd=0.002
+    )
 
     θ = np.append(θO, x[0:10:2])
     w = np.append(wO, x[1:10:2])
@@ -200,7 +208,12 @@ def RecAirCAV(α=1, β=0.1,
     P = pd.concat([θ, w], axis=1)       # points
     P.columns = ['θ [°C]', 'w [g/kg]']
 
-    Q = pd.Series(x[10:], index=['QsHC1', 'QsTZ', 'QlTZ'])
+
+    Q = pd.Series(
+        [Q_HP, x[10], x[11]],
+        index=['Q_HP', 'QsTZ', 'QlTZ']
+    )
+
     pd.options.display.float_format = '{:,.2f}'.format
 
     if show_output:
@@ -214,3 +227,69 @@ def RecAirCAV(α=1, β=0.1,
         print(Q.to_frame().T / 1000, 'kW')
 
     return θ, w, Q
+
+def heat_pump_Qc(T0, Tc, eta, rho, Vd, refrigerant="CO2"):
+    """
+    Model:
+        Heat Pump controlled by the efficiency of the compressor
+
+    -----------------------
+    Inputs:
+        T0   : source temperature [°C]
+        Tc   : sink temperature [°C]
+        eta  : isentropic efficiency compressor [-]
+        rho  : density refrigerant at compressor entry [kg/m3]
+        Vd   : volume flow at compressor [m3/s]
+
+    System:
+        EVA	:	evaporator
+        COM	:   compressor
+        CON	:	condenser
+        EXP	:	expansion valve 
+
+                         ^
+                         |Tc,out
+            <-----------CON<----------|
+            |                         |
+           EXP                       COM
+            |              mRef-->    |
+            |---------->EVA---------->|
+                         ^
+                         | T0,in
+    Unknowns
+        Qc	:	heat load of sink
+        Q0	:	heat load of source
+        mRef:	refrigerant mass flow
+    """
+
+    # --- Kelvin ---
+    T0K = T0 + 273.15
+    TcK = Tc + 273.15
+
+    # --- Zustand 1: Verdichtereintritt ---
+    P1 = PropsSI("P", "T", T0K, "Q", 1, refrigerant)
+    H1 = PropsSI("H", "T", T0K, "P", P1, refrigerant)
+    S1 = PropsSI("S", "P", P1, "T", T0K, refrigerant)
+
+    # --- Hochdruck (Gas cooler / Kondensator) ---
+    P3 = PropsSI("P", "T", TcK, "Q", 0, refrigerant)
+    P2 = P3
+
+    # --- Isentrope Verdichtung ---
+    H2s = PropsSI("H", "P", P2, "S", S1, refrigerant)
+
+    # --- Reale Verdichtung ---
+    H2 = H1 + (H2s - H1) / eta
+
+    # --- Zustand 3: Gaskühleraustritt ---
+    H3 = PropsSI("H", "P", P3, "T", TcK, refrigerant)
+
+    # --- Massenstrom ---
+    mRef = rho * eta * Vd
+
+    # --- Heizleistung ---
+    Qc = mRef * (H2 - H3)
+
+    return Qc
+
+
