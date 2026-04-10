@@ -70,7 +70,7 @@ def ModelRecAir(m, α, β, eta, θS, θO, φO, Qsa, Qla, mi, UA, T0, Tc, rho, Vd
                 QsTZ, QlTZ
 
     """
-    Q_HP = heat_pump_Qc(T0, Tc, eta, rho, Vd)   #Heat pump
+    Q_HP, cycle = heat_pump_Qc(T0, Tc, eta, rho, Vd)   #Heat pump
     wO = psy.w(θO, φO)            # hum. out
 
     # Model
@@ -78,31 +78,31 @@ def ModelRecAir(m, α, β, eta, θS, θO, φO, Qsa, Qla, mi, UA, T0, Tc, rho, Vd
 
     A = np.zeros((12, 12))          # coefficents of unknowns
     b = np.zeros(12)                # vector of inputs
-   # while Δ_θs > 0.01:
-    # MX1
-    A[0, 0], A[0, 8], b[0] = m * c, -(1 - α) * m * c, α * m * c * θO
-    A[1, 1], A[1, 9], b[1] = m * l, -(1 - α) * m * l, α * m * l * wO
-    # HC
-    A[2, 0], A[2, 2],  b[2] = -m * c, m * c, Q_HP
-    A[3, 1], A[3, 3], b[3] = -m * l, m * l, 0
-    # AH
-    A[4, 2], A[4, 3], A[4, 4], A[4, 5], b[4] = c, l, -c, -l, 0
-    A[5, 4], A[5, 5] = psy.wsp(θs0), -1
-    b[5] = psy.wsp(θs0) * θs0 - psy.w(θs0, 1)
-    # MX2
-    A[6, 2], A[6, 4], A[6, 6], b[6] = β * m * c, (1 - β) * m * c, -m * c, 0
-    A[7, 3], A[7, 5], A[7, 7], b[7] = β * m * l, (1 - β) * m * l, -m * l, 0
-    # TZ (connected directly from point 3)
-    A[8, 6], A[8, 8], A[8, 10], b[8] = m * c, -m * c, 1, 0
-    A[9, 7], A[9, 9], A[9, 11], b[9] = m * l, -m * l, 1, 0
-    # BL
-    A[10, 8], A[10, 10], b[10] = (UA + mi * c), 1, (UA + mi * c) * θO + Qsa
-    A[11, 9], A[11, 11], b[11] = mi * l, 1, mi * l * wO + Qla
+    while Δ_θs > 0.01:
+        # MX1
+        A[0, 0], A[0, 8], b[0] = m * c, -(1 - α) * m * c, α * m * c * θO
+        A[1, 1], A[1, 9], b[1] = m * l, -(1 - α) * m * l, α * m * l * wO
+        # HC
+        A[2, 0], A[2, 2],  b[2] = -m * c, m * c, Q_HP
+        A[3, 1], A[3, 3], b[3] = -m * l, m * l, 0
+        # AH
+        A[4, 2], A[4, 3], A[4, 4], A[4, 5], b[4] = c, l, -c, -l, 0
+        A[5, 4], A[5, 5] = psy.wsp(θs0), -1
+        b[5] = psy.wsp(θs0) * θs0 - psy.w(θs0, 1)
+        # MX2
+        A[6, 2], A[6, 4], A[6, 6], b[6] = β * m * c, (1 - β) * m * c, -m * c, 0
+        A[7, 3], A[7, 5], A[7, 7], b[7] = β * m * l, (1 - β) * m * l, -m * l, 0
+        # TZ (connected directly from point 3)
+        A[8, 6], A[8, 8], A[8, 10], b[8] = m * c, -m * c, 1, 0
+        A[9, 7], A[9, 9], A[9, 11], b[9] = m * l, -m * l, 1, 0
+        # BL
+        A[10, 8], A[10, 10], b[10] = (UA + mi * c), 1, (UA + mi * c) * θO + Qsa
+        A[11, 9], A[11, 11], b[11] = mi * l, 1, mi * l * wO + Qla
 
-    x = np.linalg.solve(A, b)
-   # Δ_θs = abs(θs0 - x[4])
-   # θs0 = x[4]
-    return x, Q_HP
+        x = np.linalg.solve(A, b)
+        Δ_θs = abs(θs0 - x[4])
+        θs0 = x[4]
+    return x, Q_HP, cycle
 
 
 def RecAirCAV(α=1, β=0.1, eta=0.65,
@@ -177,7 +177,7 @@ def RecAirCAV(α=1, β=0.1, eta=0.65,
 
     # Model
     
-    x, Q_HP = ModelRecAir(
+    x, Q_HP, cycle = ModelRecAir(
         m, α, β, eta,
         θS,
         θO, φO,
@@ -226,7 +226,7 @@ def RecAirCAV(α=1, β=0.1, eta=0.65,
         print()
         print(Q.to_frame().T / 1000, 'kW')
 
-    return θ, w, Q
+    return θ, w, Q, cycle
 
 def heat_pump_Qc(T0, Tc, eta, rho, Vd, refrigerant="CO2"):
     """
@@ -291,6 +291,6 @@ def heat_pump_Qc(T0, Tc, eta, rho, Vd, refrigerant="CO2"):
     # --- Heizleistung ---
     Qc = mRef * (H2 - H3)
 
-    return Qc
+    return Qc, [[P1, H1], [P2, H2], [P3, H3], [P1, H3]]
 
 
