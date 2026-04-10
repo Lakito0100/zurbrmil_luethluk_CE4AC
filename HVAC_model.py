@@ -286,7 +286,7 @@ def heat_pump_Qc(T0, Tc, eta, rho, Vd, refrigerant="CO2"):
     H3 = PropsSI("H", "P", P3, "Q", 0, refrigerant)
     
     # --- Massenstrom ---
-    mRef = rho * eta * Vd * (4000/60)
+    mRef = rho * eta * Vd * (3000/60)
 
     # --- Heizleistung ---
     Qc = mRef * (H2 - H3)
