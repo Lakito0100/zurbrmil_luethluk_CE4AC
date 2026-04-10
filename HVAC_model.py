@@ -54,8 +54,8 @@ def ModelRecAir(m, α, β, eta, θS, θO, φO, Qsa, Qla, mi, UA, T0, Tc, rho, Vd
         0..4    unknown points (temperature, humidity ratio)
 
         <----|<-----------------------------------|
-             |                                    |
-             |              |-------|             |
+            |                                    |
+            |              |-------|             |
         -o->MX1--0->HC--1-->|       MX2--3->TZ--4-|
                     /       |       |       ||    |
                     |       |->AH-2-|       BL    |
@@ -106,9 +106,9 @@ def ModelRecAir(m, α, β, eta, θS, θO, φO, Qsa, Qla, mi, UA, T0, Tc, rho, Vd
 
 
 def RecAirCAV(α=1, β=0.1, eta=0.65,
-              θS=30, θIsp=18, φIsp=0.49, θO=-1, φO=1,
-              Qsa=0, Qla=0, mi=2.18, UA=935.83, 
-              show_plots=True, show_output=True):
+            θS=30, θIsp=18, φIsp=0.49, θO=-1, φO=1,
+            Qsa=0, Qla=0, mi=2.18, UA=935.83, 
+            show_plots=True, show_output=True):
     """
     Model:
         Heating and adiabatic humidification
@@ -142,8 +142,8 @@ def RecAirCAV(α=1, β=0.1, eta=0.65,
         0..4    5 unknown points (temperature, humidity ratio)
 
         <----|<-----------------------------------|
-             |                                    |
-             |              |-------|             |
+            |                                    |
+            |              |-------|             |
         -o->MX1--0->HC1--1->|       MX2--3->TZ--4-|
                     |       |       |       ||    |
                     |       |->AH-2-|       BL    |
@@ -179,11 +179,11 @@ def RecAirCAV(α=1, β=0.1, eta=0.65,
     
     x, Q_HP = ModelRecAir(
         m, α, β, eta,
-        θS, θIsp, φIsp,
+        θS,
         θO, φO,
         Qsa, Qla, mi, UA, 
-        T0=θO,          
-        Tc=θS,      
+        T0=15,          
+        Tc=30,      
         rho=85,
         Vd=0.002
     )
@@ -195,10 +195,10 @@ def RecAirCAV(α=1, β=0.1, eta=0.65,
     # Points calc.  o   0   1   2   3   4       Elements
     # Points pplot  0   1   2   3   4   5       Elements
     A = np.array([[-1, +1, +0, +0, +0, -1],     # MX1
-                  [+0, -1, +1, +0, +0, +0],     # HC1
-                  [+0, +0, -1, +1, +0, +0],     # AH
-                  [+0, +0, -1, -1, +1, +0],     # MX2
-                  [+0, +0, +0, +0, -1, +1]])    # TZ
+                [+0, -1, +1, +0, +0, +0],     # HC1
+                [+0, +0, -1, +1, +0, +0],     # AH
+                [+0, +0, -1, -1, +1, +0],     # MX2
+                [+0, +0, +0, +0, -1, +1]])    # TZ
 
     if show_plots:
         psy.chartA(θ, w, A,t_range=np.arange(min(θ)-5, max(θ)+5, 0.1), w_range=np.arange(max(min(w)-0.005, 0), max(w)+0.005, 0.0001))
@@ -247,15 +247,15 @@ def heat_pump_Qc(T0, Tc, eta, rho, Vd, refrigerant="CO2"):
         CON	:	condenser
         EXP	:	expansion valve 
 
-                         ^
-                         |Tc,out
+                        ^
+                        |Tc,out
             <-----------CON<----------|
             |                         |
-           EXP                       COM
+        EXP                       COM
             |              mRef-->    |
             |---------->EVA---------->|
-                         ^
-                         | T0,in
+                        ^
+                        | T0,in
     Unknowns
         Qc	:	heat load of sink
         Q0	:	heat load of source
@@ -268,24 +268,27 @@ def heat_pump_Qc(T0, Tc, eta, rho, Vd, refrigerant="CO2"):
 
     # --- Zustand 1: Verdichtereintritt ---
     P1 = PropsSI("P", "T", T0K, "Q", 1, refrigerant)
-    H1 = PropsSI("H", "T", T0K, "P", P1, refrigerant)
-    S1 = PropsSI("S", "P", P1, "T", T0K, refrigerant)
+    H1 = PropsSI("H", "T", T0K, "Q", 1, refrigerant)
 
     # --- Hochdruck (Gas cooler / Kondensator) ---
     P3 = PropsSI("P", "T", TcK, "Q", 0, refrigerant)
     P2 = P3
 
     # --- Isentrope Verdichtung ---
-    H2s = PropsSI("H", "P", P2, "S", S1, refrigerant)
+    S2s = PropsSI("S", "P|gas", P1, "T", T0K, refrigerant)
+    T2s = PropsSI("T", "P", P3, "S", S2s, refrigerant)
+    H2s = PropsSI("H", "P|gas", P3, "T", T2s, refrigerant)
 
     # --- Reale Verdichtung ---
     H2 = H1 + (H2s - H1) / eta
 
     # --- Zustand 3: Gaskühleraustritt ---
-    H3 = PropsSI("H", "P", P3, "T", TcK, refrigerant)
+    H3 = PropsSI("H", "P", P3, "Q", 0, refrigerant)
+
+    P4 = PropsSI("P", "T", T0K, "H", H3, refrigerant)
 
     # --- Massenstrom ---
-    mRef = rho * eta * Vd
+    mRef = rho * eta * Vd * (1000/60)
 
     # --- Heizleistung ---
     Qc = mRef * (H2 - H3)
