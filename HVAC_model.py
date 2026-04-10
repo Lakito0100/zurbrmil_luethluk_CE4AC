@@ -141,9 +141,9 @@ def RecAirCAV(α=1, β=0.1,
         o:      outdoor conditions
         0..4    5 unknown points (temperature, humidity ratio)
 
-        <----|<--------------------------------|
-             |                                |
-             |              |-------|         |
+        <----|<-----------------------------------|
+             |                                    |
+             |              |-------|             |
         -o->MX1--0->HC1--1->|       MX2--3->TZ--4-|
                     |       |       |       ||    |
                     |       |->AH-2-|       BL    |
@@ -155,7 +155,7 @@ def RecAirCAV(α=1, β=0.1,
         QsHC1, QsTZ, QlTZ
     Returns
     -------
-    None
+    θ, w, Q
     """
     plt.close('all')
     wO = psy.w(θO, φO)            # hum. out
@@ -209,4 +209,4 @@ def RecAirCAV(α=1, β=0.1,
     print()
     print(Q.to_frame().T / 1000, 'kW')
 
-    return None
+    return θ, w, Q
