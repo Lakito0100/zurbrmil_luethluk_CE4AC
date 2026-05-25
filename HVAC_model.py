@@ -182,10 +182,10 @@ def RecAirCAV(α=1, β=0.1, eta=0.65,
         θS,
         θO, φO,
         Qsa, Qla, mi, UA, 
-        T0=15,          
+        T0=9,          
         Tc=30,      
         rho=1.7,   # density of CO2 at compressor entry
-        Vd=0.003   # volume of compressor (m3)
+        Vd=0.006   # volume of compressor (m3)
     )
 
     θ = np.append(θO, x[0:10:2])
