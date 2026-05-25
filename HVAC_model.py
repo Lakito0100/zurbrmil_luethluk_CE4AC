@@ -182,8 +182,8 @@ def RecAirCAV(α=1, β=0.1, eta=0.65,
         θS,
         θO, φO,
         Qsa, Qla, mi, UA, 
-        T0=15,          
-        Tc=30,      
+        T0=-4,          
+        Tc=35,      
         rho=1.7,   # density of CO2 at compressor entry
         Vd=0.003   # volume of compressor (m3)
     )
